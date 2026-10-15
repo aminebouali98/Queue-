@@ -1,0 +1,67 @@
+name: Build Queue TV APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download repository files
+        uses: actions/checkout@v4
+
+      - name: Install Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK components
+        run: |
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          yes | sdkmanager --licenses
+
+      - name: Extract Queue TV project
+        run: |
+          ZIP_FILE=$(find . -maxdepth 1 -type f -name 'QueueTV-GitHub-Actions-Android6Plus.zip' | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERROR: Queue TV ZIP file was not found in the repository root."
+            exit 1
+          fi
+          unzip -q "$ZIP_FILE" -d extracted
+          echo "Project files:"
+          find extracted -maxdepth 3 -type f
+
+      - name: Compile APK
+        run: |
+          PROJECT_DIR="extracted/QueueTV"
+          if [ ! -f "$PROJECT_DIR/settings.gradle" ]; then
+            echo "ERROR: Android project files were not found."
+            exit 1
+          fi
+          cd "$PROJECT_DIR"
+          gradle assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: QueueTV-Android6-APK
+          path: extracted/QueueTV/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
