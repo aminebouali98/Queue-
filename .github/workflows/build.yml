@@ -39,40 +39,36 @@ jobs:
           yes | sdkmanager --licenses
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Find and extract Queue TV project
+      - name: Extract Queue TV project
         run: |
-          ZIP_FILE=$(find . -maxdepth 1 -type f \( \
-            -name 'QueueTV-Android10Plus-HiddenSettings.zip' -o \
-            -name 'QueueTV-GitHub-Actions-Android6Plus.zip' -o \
-            -name 'QueueTV-GitHub-Actions-Android10Plus.zip' \
-          \) | head -n 1)
+          ZIP_FILE="QueueTV-Android10Plus-HiddenSettings-NoNowServing.zip"
 
-          if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: Queue TV project ZIP was not found."
-            echo "Upload the updated Queue TV ZIP to the repository root."
+          if [ ! -f "$ZIP_FILE" ]; then
+            echo "ERROR: Project ZIP not found: $ZIP_FILE"
+            echo "Files in repository:"
+            ls -la
             exit 1
           fi
 
-          echo "Using project archive: $ZIP_FILE"
           unzip -q "$ZIP_FILE" -d extracted
 
           if [ ! -f extracted/QueueTV/app/build.gradle ]; then
             echo "ERROR: Android project files are missing."
-            find extracted -maxdepth 4 -type f
+            find extracted -maxdepth 5 -type f
             exit 1
           fi
 
       - name: Verify Android 10 minimum
         run: |
-          grep -q 'minSdk 29' extracted/QueueTV/app/build.gradle || {
-            echo "ERROR: Project must have minSdk 29 for Android 10+."
+          grep -Eq 'minSdk[[:space:]]+29|minSdkVersion[[:space:]]+29' extracted/QueueTV/app/build.gradle || {
+            echo "ERROR: minSdk must be 29 (Android 10)."
             exit 1
           }
 
       - name: Build Android APK
         run: |
           cd extracted/QueueTV
-          gradle --no-daemon assembleDebug
+          gradle --no-daemon assembleDebug --stacktrace
 
       - name: Upload Android 10+ APK
         uses: actions/upload-artifact@v4
